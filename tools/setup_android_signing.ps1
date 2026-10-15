@@ -27,12 +27,22 @@ function New-RandomPassword {
 function Test-KeytoolPath {
     param([string]$Path)
     if (-not $Path) { return $false }
-    if (-not (Test-Path $Path)) { return $false }
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+
+    $stdout = [IO.Path]::GetTempFileName()
+    $stderr = [IO.Path]::GetTempFileName()
     try {
-        & $Path -help > $null 2>&1
-        return ($LASTEXITCODE -eq 0)
+        $process = Start-Process -FilePath $Path -ArgumentList "-help" -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        if ($process.ExitCode -eq 0) { return $true }
+
+        $outText = Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue
+        $errText = Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue
+        return (($outText + $errText) -match "Key and Certificate Management Tool")
     } catch {
         return $false
+    } finally {
+        Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
     }
 }
 
