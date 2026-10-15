@@ -24,11 +24,27 @@ function New-RandomPassword {
     return $result
 }
 
+function Test-KeytoolPath {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        & $Path -help > $null 2>&1
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    }
+}
+
 function Find-Keytool {
     $cmd = Get-Command keytool -ErrorAction SilentlyContinue
     if ($null -ne $cmd) {
-        if ($cmd.Path) { return $cmd.Path }
-        if ($cmd.Source) { return $cmd.Source }
+        $cmdPath = $null
+        if ($cmd.Path) { $cmdPath = $cmd.Path }
+        if (-not $cmdPath -and $cmd.Source) { $cmdPath = $cmd.Source }
+        if ($cmdPath -and (Test-KeytoolPath $cmdPath)) {
+            return $cmdPath
+        }
     }
 
     $candidates = New-Object System.Collections.Generic.List[string]
@@ -43,7 +59,7 @@ function Find-Keytool {
     }
 
     foreach ($file in $candidates) {
-        if (Test-Path $file) { return $file }
+        if (Test-KeytoolPath $file) { return $file }
     }
 
     $searchRoots = @(
@@ -55,8 +71,11 @@ function Find-Keytool {
 
     foreach ($root in $searchRoots) {
         if (Test-Path $root) {
-            $found = Get-ChildItem -Path $root -Filter "keytool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) { return $found.FullName }
+            $found = Get-ChildItem -Path $root -Filter "keytool.exe" -Recurse -ErrorAction SilentlyContinue |
+                Select-Object -First 10
+            foreach ($item in $found) {
+                if (Test-KeytoolPath $item.FullName) { return $item.FullName }
+            }
         }
     }
 
@@ -65,7 +84,7 @@ function Find-Keytool {
 
 $keytoolPath = Find-Keytool
 if (-not $keytoolPath) {
-    throw "keytool not found. Install JDK 17 or Android Studio, then rerun this script."
+    throw "No working keytool found. Install JDK 17 or Android Studio, then rerun this script."
 }
 
 $storePassword = New-RandomPassword
