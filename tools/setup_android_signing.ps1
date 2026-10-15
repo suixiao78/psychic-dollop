@@ -24,30 +24,61 @@ function New-RandomPassword {
     return $result
 }
 
-$storePassword = New-RandomPassword
-$keyPassword = $storePassword
+function Find-Keytool {
+    $cmd = Get-Command keytool -ErrorAction SilentlyContinue
+    if ($null -ne $cmd) {
+        if ($cmd.Path) { return $cmd.Path }
+        if ($cmd.Source) { return $cmd.Source }
+    }
 
-$keytool = Get-Command keytool -ErrorAction SilentlyContinue
-if ($null -eq $keytool) {
+    $candidates = New-Object System.Collections.Generic.List[string]
     if ($env:JAVA_HOME) {
-        $candidate = Join-Path $env:JAVA_HOME "bin\keytool.exe"
-        if (Test-Path $candidate) {
-            $keytool = Get-Item $candidate
+        $candidates.Add((Join-Path $env:JAVA_HOME "bin\keytool.exe"))
+    }
+    $candidates.Add("C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe")
+    $candidates.Add("C:\Program Files\Android\Android Studio\jre\bin\keytool.exe")
+    if ($env:LOCALAPPDATA) {
+        $candidates.Add("$env:LOCALAPPDATA\Android\Android Studio\jbr\bin\keytool.exe")
+        $candidates.Add("$env:LOCALAPPDATA\Programs\Eclipse Adoptium\bin\keytool.exe")
+    }
+
+    foreach ($file in $candidates) {
+        if (Test-Path $file) { return $file }
+    }
+
+    $searchRoots = @(
+        "$env:ProgramFiles\Eclipse Adoptium",
+        "$env:ProgramFiles\Microsoft",
+        "$env:ProgramFiles\Java",
+        "$env:LOCALAPPDATA\Programs\Eclipse Adoptium"
+    )
+
+    foreach ($root in $searchRoots) {
+        if (Test-Path $root) {
+            $found = Get-ChildItem -Path $root -Filter "keytool.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { return $found.FullName }
         }
     }
+
+    return $null
 }
 
-if ($null -eq $keytool) {
-    throw "keytool not found. Install JDK 17 and add it to PATH, or set JAVA_HOME."
+$keytoolPath = Find-Keytool
+if (-not $keytoolPath) {
+    throw "keytool not found. Install JDK 17 or Android Studio, then rerun this script."
 }
+
+$storePassword = New-RandomPassword
+$keyPassword = $storePassword
 
 $keystoreDir = Split-Path -Parent $KeystorePath
 if ($keystoreDir -and -not (Test-Path $keystoreDir)) {
     New-Item -ItemType Directory -Force -Path $keystoreDir | Out-Null
 }
 
+Write-Host "Using keytool: $keytoolPath"
 Write-Host "Generating keystore: $KeystorePath"
-& $keytool.FullName -genkeypair -v `
+& $keytoolPath -genkeypair -v `
     -keystore $KeystorePath `
     -storetype JKS `
     -keyalg RSA `
