@@ -41,6 +41,10 @@ jobs:
           cp -R /tmp/grid_quiz_android/android ./android
           cp /tmp/grid_quiz_android/.metadata ./.metadata
           sed -i 's/android:label=\"grid_quiz_app\"/android:label=\"国家电网刷题助手\"/' android/app/src/main/AndroidManifest.xml
+
+          if [ -f android/settings.gradle ]; then
+            sed -i 's/org.jetbrains.kotlin.android" version "1.7.10"/org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle
+          fi
           if [ -f android/build.gradle ]; then
             sed -i "s/ext.kotlin_version = '1.7.10'/ext.kotlin_version = '1.9.22'/" android/build.gradle
             sed -i 's/ext.kotlin_version = "1.7.10"/ext.kotlin_version = "1.9.22"/' android/build.gradle
