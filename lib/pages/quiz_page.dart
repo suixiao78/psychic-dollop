@@ -124,6 +124,12 @@ class _QuizPageState extends State<QuizPage> {
         if (question.images.isNotEmpty) ...[
           const SizedBox(height: 12),
           QuestionImages(images: question.images),
+        ] else if (question.sourceImage.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          if (question.needsImage)
+            QuestionImages(images: <String>[question.sourceImage])
+          else
+            SourceImageButton(sourceImage: question.sourceImage),
         ],
         const SizedBox(height: 16),
         ...question.options.map((option) {

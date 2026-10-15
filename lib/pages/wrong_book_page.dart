@@ -134,6 +134,9 @@ class _WrongQuestionCard extends StatelessWidget {
             if (question.images.isNotEmpty) ...[
               const SizedBox(height: 8),
               QuestionImages(images: question.images, height: 160),
+            ] else if (question.sourceImage.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SourceImageButton(sourceImage: question.sourceImage, label: '查看原图'),
             ],
             const SizedBox(height: 8),
             Text(

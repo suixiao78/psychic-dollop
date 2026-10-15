@@ -20,6 +20,8 @@ class Question {
   final int updatedAt;
   final List<Option> options;
   final List<String> images;
+  final String sourceImage;
+  final bool needsImage;
 
   const Question({
     this.id,
@@ -41,6 +43,8 @@ class Question {
     this.updatedAt = 0,
     this.options = const <Option>[],
     this.images = const <String>[],
+    this.sourceImage = '',
+    this.needsImage = false,
   });
 
   bool get isSingleChoice => questionType == 'single';
@@ -82,6 +86,8 @@ class Question {
       updatedAt: (map['updated_at'] as int?) ?? 0,
       options: options,
       images: images,
+      sourceImage: (map['source_image'] as String?) ?? '',
+      needsImage: ((map['needs_image'] as int?) ?? 0) == 1,
     );
   }
 
@@ -100,6 +106,8 @@ class Question {
       'explanation': explanation,
       'source_file': sourceFile,
       'source_locator': sourceLocator,
+      'source_image': sourceImage,
+      'needs_image': needsImage ? 1 : 0,
       'difficulty': difficulty,
       'is_active': isActive ? 1 : 0,
       'created_at': createdAt,
@@ -127,6 +135,8 @@ class Question {
     int? updatedAt,
     List<Option>? options,
     List<String>? images,
+    String? sourceImage,
+    bool? needsImage,
   }) {
     return Question(
       id: id ?? this.id,
@@ -148,6 +158,8 @@ class Question {
       updatedAt: updatedAt ?? this.updatedAt,
       options: options ?? this.options,
       images: images ?? this.images,
+      sourceImage: sourceImage ?? this.sourceImage,
+      needsImage: needsImage ?? this.needsImage,
     );
   }
 }

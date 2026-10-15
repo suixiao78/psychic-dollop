@@ -9,7 +9,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _databaseName = 'grid_quiz_app.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   Database? _database;
 
@@ -63,6 +63,8 @@ class DatabaseHelper {
         explanation TEXT NOT NULL DEFAULT '',
         source_file TEXT NOT NULL DEFAULT '',
         source_locator TEXT NOT NULL DEFAULT '',
+        source_image TEXT NOT NULL DEFAULT '',
+        needs_image INTEGER NOT NULL DEFAULT 0,
         difficulty INTEGER NOT NULL DEFAULT 1 CHECK (
           difficulty BETWEEN 1 AND 5
         ),
@@ -202,6 +204,7 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, newVersion);
+      return;
     }
     if (oldVersion < 2) {
       await db.execute('''
@@ -218,6 +221,14 @@ class DatabaseHelper {
         CREATE INDEX IF NOT EXISTS idx_question_images_question
         ON question_images (question_id, sort_order)
       ''');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        "ALTER TABLE questions ADD COLUMN source_image TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute(
+        'ALTER TABLE questions ADD COLUMN needs_image INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 

@@ -146,6 +146,8 @@ def make_item(
             "explanation": explanation,
             "difficulty": 1,
             "images": images or [],
+            "sourceImage": "",
+            "needsImage": False,
             "imageStatus": "none",
             "sourceFile": source_file,
             "sourceLocator": source_locator,
@@ -433,89 +435,101 @@ def find_next_rect(doc, start_page_index, qnum, source_type):
     return None, None
 
 
+def _question_key(item: dict):
+    source_file = item.get("sourceFile") or ""
+    source_locator = item.get("sourceLocator") or ""
+    qnum_match = re.search(r"(\d+)", source_locator)
+    qnum = int(qnum_match.group(1)) if qnum_match else None
+    qid_match = re.search(r"id\s+([^,\s]+)", source_locator)
+    qid = qid_match.group(1) if qid_match else None
+    return (source_file, qnum, qid, _source_type(item))
+
+
+def safe_source_name(item: dict) -> str:
+    raw = f"{item.get('id', 'q')}_source"
+    return re.sub(r"[^0-9A-Za-z._-]+", "_", raw).strip("_")[:120] + ".jpg"
+
+
 def attach_images(all_items, assets_root):
     os.makedirs(assets_root, exist_ok=True)
-    cache = {}
+    groups = OrderedDict()
+    for item in all_items:
+        key = _question_key(item)
+        groups.setdefault(key, []).append(item)
+
     attached = 0
+    source_count = 0
     skipped = 0
 
-    for item in all_items:
-        if not has_image_hint(item):
-            item["images"] = []
-            item["imageStatus"] = "none"
-            continue
+    for key, items in groups.items():
+        representative = items[0]
+        source_file, qnum, qid, stype = key
+        has_hint = has_image_hint(representative)
+        images = []
+        source_image = ""
+        status = "none"
 
-        source_file = item.get("sourceFile") or ""
-        source_locator = item.get("sourceLocator") or ""
-        qnum_match = re.search(r"(\d+)", source_locator)
-        qnum = int(qnum_match.group(1)) if qnum_match else None
-        qid_match = re.search(r"id\s+([^,\s]+)", source_locator)
-        qid = qid_match.group(1) if qid_match else None
-        stype = _source_type(item)
+        if source_file and qnum is not None:
+            doc = None
+            try:
+                doc = fitz.open(source_file)
+                page_index, page, rect = find_header_rect(doc, qnum, qid=qid, source_type=stype)
+                if page is None:
+                    for pi in range(doc.page_count):
+                        p = doc.load_page(pi)
+                        if qid and p.search_for(qid):
+                            page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
+                            break
+                        if (not qid) and p.search_for(str(qnum)):
+                            page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
+                            break
 
-        if not source_file or qnum is None:
-            item["images"] = []
-            item["imageStatus"] = "not_found"
-            skipped += 1
-            continue
+                if page is not None:
+                    start_y = max(0, rect.y0 - 10)
+                    next_page_index, next_rect = find_next_rect(doc, page_index, qnum, stype)
+                    if next_page_index == page_index and next_rect is not None:
+                        end_y = min(page.rect.height, next_rect.y0 - 10)
+                    else:
+                        end_y = page.rect.height
+                    if end_y <= start_y + 20:
+                        end_y = page.rect.height
 
-        key = (source_file, qnum, qid, stype)
-        if key in cache:
-            item["images"] = cache[key]
-            item["imageStatus"] = "cropped" if cache[key] else "not_found"
-            continue
+                    clip = fitz.Rect(0, start_y, page.rect.width, end_y)
+                    if has_hint:
+                        filename = safe_image_name(representative)
+                        out_path = os.path.join(assets_root, filename)
+                        pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), clip=clip)
+                        pix.save(out_path)
+                        pix = None
+                        images = ["assets/question_images/" + filename]
+                        status = "cropped"
+                        attached += 1
+                    else:
+                        filename = safe_source_name(representative)
+                        out_path = os.path.join(assets_root, filename)
+                        pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0), clip=clip)
+                        pix.save(out_path, jpg_quality=80)
+                        pix = None
+                        source_image = "assets/question_images/" + filename
+                        status = "source"
+                        source_count += 1
+            except Exception:
+                status = "error"
+            finally:
+                if doc is not None:
+                    doc.close()
 
-        try:
-            doc = fitz.open(source_file)
-            page_index, page, rect = find_header_rect(doc, qnum, qid=qid, source_type=stype)
-            if page is None:
-                for pi in range(doc.page_count):
-                    p = doc.load_page(pi)
-                    if qid and p.search_for(qid):
-                        page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
-                        break
-                    if (not qid) and p.search_for(str(qnum)):
-                        page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
-                        break
-
-            if page is None:
-                doc.close()
-                item["images"] = []
-                item["imageStatus"] = "not_found"
-                cache[key] = []
-                skipped += 1
-                continue
-
-            start_y = max(0, rect.y0 - 10)
-            next_page_index, next_rect = find_next_rect(doc, page_index, qnum, stype)
-            if next_page_index == page_index and next_rect is not None:
-                end_y = min(page.rect.height, next_rect.y0 - 10)
-            else:
-                end_y = page.rect.height
-            if end_y <= start_y + 20:
-                end_y = page.rect.height
-
-            clip = fitz.Rect(0, start_y, page.rect.width, end_y)
-            filename = safe_image_name(item)
-            out_path = os.path.join(assets_root, filename)
-            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), clip=clip)
-            pix.save(out_path)
-            pix = None
-            doc.close()
-
-            asset_path = "assets/question_images/" + filename
-            item["images"] = [asset_path]
-            item["imageStatus"] = "cropped"
-            cache[key] = [asset_path]
-            attached += 1
-        except Exception:
-            item["images"] = []
-            item["imageStatus"] = "error"
-            cache[key] = []
+        if not images and not source_image:
+            status = "not_found"
             skipped += 1
 
-    return attached, skipped
+        for item in items:
+            item["images"] = images
+            item["sourceImage"] = source_image
+            item["needsImage"] = has_hint
+            item["imageStatus"] = status
 
+    return attached, source_count, skipped
 
 # ---------------------------------------------------------------------------
 # Main
@@ -567,8 +581,13 @@ def build():
         report.append({"source_type": "ly", "file": q_path, "imported": len(items), "note": "题库+答案；通用层次"})
 
     assets_root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "question_images")
-    attached, skipped = attach_images(all_items, assets_root)
-    report.append({"source_type": "images", "file": assets_root, "imported": attached, "note": f"自动裁图成功 {attached} 张，失败 {skipped} 张"})
+    attached, source_count, skipped = attach_images(all_items, assets_root)
+    report.append({
+        "source_type": "images",
+        "file": assets_root,
+        "imported": attached + source_count,
+        "note": f"题目配图 {attached} 张，原题截图 {source_count} 张，失败 {skipped} 张",
+    })
 
     # group into app JSON schema
     subjects = OrderedDict()

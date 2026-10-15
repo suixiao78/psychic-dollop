@@ -105,6 +105,9 @@ class QuestionImportService {
               explanation: questionRaw['explanation']?.toString() ?? '',
               sourceFile: questionRaw['sourceFile']?.toString() ?? '',
               sourceLocator: questionRaw['sourceLocator']?.toString() ?? '',
+              sourceImage: questionRaw['sourceImage']?.toString() ?? '',
+              needsImage:
+                  questionRaw['needsImage'] == true || questionRaw['needsImage'] == 1,
               difficulty:
                   int.tryParse(questionRaw['difficulty']?.toString() ?? '') ?? 1,
               isActive: true,
