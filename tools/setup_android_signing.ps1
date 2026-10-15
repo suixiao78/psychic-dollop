@@ -8,11 +8,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path "pubspec.yaml")) {
-    throw "请在 Flutter 项目根目录运行此脚本"
+    throw "Run this script from the Flutter project root."
 }
 
 if (Test-Path $KeystorePath) {
-    throw "签名文件已存在：$KeystorePath，请先备份或删除后再运行"
+    throw "Keystore already exists: $KeystorePath. Back it up or delete it first."
 }
 
 function New-RandomPassword {
@@ -38,7 +38,7 @@ if ($null -eq $keytool) {
 }
 
 if ($null -eq $keytool) {
-    throw "未找到 keytool，请安装 JDK 17 并加入 PATH，或设置 JAVA_HOME"
+    throw "keytool not found. Install JDK 17 and add it to PATH, or set JAVA_HOME."
 }
 
 $keystoreDir = Split-Path -Parent $KeystorePath
@@ -46,7 +46,7 @@ if ($keystoreDir -and -not (Test-Path $keystoreDir)) {
     New-Item -ItemType Directory -Force -Path $keystoreDir | Out-Null
 }
 
-Write-Host "正在生成签名文件：$KeystorePath"
+Write-Host "Generating keystore: $KeystorePath"
 & $keytool.FullName -genkeypair -v `
     -keystore $KeystorePath `
     -storetype JKS `
@@ -59,7 +59,7 @@ Write-Host "正在生成签名文件：$KeystorePath"
     -dname $Dname
 
 if ($LASTEXITCODE -ne 0) {
-    throw "keytool 生成签名失败，退出码：$LASTEXITCODE"
+    throw "keytool failed with exit code $LASTEXITCODE"
 }
 
 $resolvedKeystore = (Resolve-Path $KeystorePath).Path
@@ -80,8 +80,7 @@ storeFile=$(Split-Path $KeystorePath -Leaf)
 
 $gh = Get-Command gh -ErrorAction SilentlyContinue
 if ($null -eq $gh) {
-    Write-Warning "未找到 GitHub CLI gh，请手动配置 Secrets。"
-    Write-Host "Secrets:"
+    Write-Warning "GitHub CLI gh was not found. Set these GitHub Secrets manually."
     Write-Host "ANDROID_KEYSTORE_BASE64=$base64"
     Write-Host "ANDROID_KEYSTORE_PASSWORD=$storePassword"
     Write-Host "ANDROID_KEY_PASSWORD=$keyPassword"
@@ -89,10 +88,10 @@ if ($null -eq $gh) {
 } else {
     gh auth status 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "gh 尚未登录，请先执行：gh auth login"
+        throw "gh is not logged in. Run: gh auth login"
     }
 
-    Write-Host "正在写入 GitHub Secrets：$Repo"
+    Write-Host "Writing GitHub Secrets to: $Repo"
     $base64 | gh secret set ANDROID_KEYSTORE_BASE64 --repo $Repo
     $storePassword | gh secret set ANDROID_KEYSTORE_PASSWORD --repo $Repo
     $keyPassword | gh secret set ANDROID_KEY_PASSWORD --repo $Repo
@@ -101,14 +100,15 @@ if ($null -eq $gh) {
 
 Write-Host ""
 Write-Host "=========================================="
-Write-Host "签名配置完成，请立即备份以下内容："
+Write-Host "Signing configured. Back up these values:"
 Write-Host "Keystore: $resolvedKeystore"
 Write-Host "Alias: $Alias"
 Write-Host "StorePassword: $storePassword"
 Write-Host "KeyPassword: $keyPassword"
 Write-Host "=========================================="
 Write-Host ""
-Write-Host "android/key.properties 已生成，keystore 与 key.properties 已加入 .gitignore。"
-Write-Host "接下来推送新的 tag 即可触发正式签名 APK："
+Write-Host "android/key.properties was generated."
+Write-Host "keystore and key.properties are already in .gitignore."
+Write-Host "Next, push a new tag:"
 Write-Host "git tag v1.0.1"
 Write-Host "git push origin v1.0.1"
