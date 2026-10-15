@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "appName": "国家电网刷题助手",
+  "generatedAt": "2026-01-01T00:00:00+08:00",
+  "examLevels": ["专科", "本科", "硕士", "通用"],
+  "subjects": [
+    {
+      "id": "sub_elec",
+      "name": "电工类",
+      "chapters": [
+        {
+          "id": "ch_circuit",
+          "name": "电路",
+          "questions": [
+            {
+              "id": "q_elec_circuit_bk_0001",
+              "examLevel": "本科",
+              "type": "single",
+              "stem": "在电阻、电感串联电路中，电路的性质取决于（ ）。",
+              "options": [
+                { "key": "A", "text": "电阻与感抗的大小关系" },
+                { "key": "B", "text": "电源频率" },
+                { "key": "C", "text": "电源电压" },
+                { "key": "D", "text": "电路电流" }
+              ],
+              "answer": ["A"],
+              "explanation": "串联电路中，感抗与电阻的相对大小决定电路呈感性、阻性或容性。",
+              "difficulty": 2,
+              "sourceFile": "25hz讲义/电路.pdf",
+              "sourceLocator": "示例页码/题号"
+            },
+            {
+              "id": "q_elec_circuit_bk_0002",
+              "examLevel": "本科",
+              "type": "multiple",
+              "stem": "电力系统对继电保护装置的基本要求包括（ ）。",
+              "options": [
+                { "key": "A", "text": "选择性" },
+                { "key": "B", "text": "速动性" },
+                { "key": "C", "text": "灵敏性" },
+                { "key": "D", "text": "可靠性" }
+              ],
+              "answer": ["A", "B", "C", "D"],
+              "explanation": "继电保护四性：选择性、速动性、灵敏性、可靠性。",
+              "difficulty": 1,
+              "sourceFile": "1/25hz讲义/继电保护.pdf",
+              "sourceLocator": "示例页码/题号"
+            },
+            {
+              "id": "q_elec_circuit_zk_0003",
+              "examLevel": "专科",
+              "type": "judge",
+              "stem": "电压是衡量电场力做功能力的物理量。",
+              "options": [
+                { "key": "A", "text": "正确" },
+                { "key": "B", "text": "错误" }
+              ],
+              "answer": ["A"],
+              "explanation": "电压表示单位正电荷从一点移动到另一点时电场力所做的功。",
+              "difficulty": 1,
+              "sourceFile": "示例来源.pdf",
+              "sourceLocator": "示例页码/题号"
+            }
+          ]
+        },
+        {
+          "id": "ch_power_system",
+          "name": "电力系统分析",
+          "questions": [
+            {
+              "id": "q_elec_power_ss_0001",
+              "examLevel": "硕士",
+              "type": "single",
+              "stem": "电力系统暂态稳定性主要研究（ ）。",
+              "options": [
+                { "key": "A", "text": "系统受到大扰动后保持同步运行的能力" },
+                { "key": "B", "text": "系统稳态电压水平" },
+                { "key": "C", "text": "系统正常频率偏差" },
+                { "key": "D", "text": "系统电能质量指标" }
+              ],
+              "answer": ["A"],
+              "explanation": "暂态稳定研究电力系统在较大扰动后能否恢复到同步运行状态。",
+              "difficulty": 3,
+              "sourceFile": "示例来源.pdf",
+              "sourceLocator": "示例页码/题号"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
