@@ -450,7 +450,12 @@ def safe_source_name(item: dict) -> str:
     return re.sub(r"[^0-9A-Za-z._-]+", "_", raw).strip("_")[:120] + ".jpg"
 
 
-def adjust_crop_bounds(page, stype, start_y, end_y):
+def page_has_data_analysis(page) -> bool:
+    text = page.get_text("text")
+    return any(key in text for key in ["资料分析", "根据以下资料", "根据上述资料"])
+
+
+def adjust_crop_bounds(page, stype, start_y, end_y, include_material=False):
     if stype == "vivi":
         cut_y = None
         for marker in ["您的答案", "正确答案", "分析：", "分析:"]:
@@ -460,12 +465,13 @@ def adjust_crop_bounds(page, stype, start_y, end_y):
         if cut_y is not None:
             end_y = min(end_y, cut_y - 5)
     elif stype == "xueba":
-        score_y = None
-        for rect in page.search_for("分数"):
-            if start_y - 5 <= rect.y0 < end_y:
-                score_y = rect.y1 if score_y is None else max(score_y, rect.y1)
-        if score_y is not None:
-            start_y = max(start_y, score_y + 5)
+        if not include_material:
+            score_y = None
+            for rect in page.search_for("分数"):
+                if start_y - 5 <= rect.y0 < end_y:
+                    score_y = rect.y1 if score_y is None else max(score_y, rect.y1)
+            if score_y is not None:
+                start_y = max(start_y, score_y + 5)
 
         cut_y = None
         for marker in ["题目解析"]:
@@ -493,6 +499,7 @@ def attach_images(all_items, assets_root):
         representative = items[0]
         source_file, qnum, qid, stype = key
         has_hint = has_image_hint(representative)
+        include_material = False
         images = []
         source_image = ""
         status = "none"
@@ -513,7 +520,10 @@ def attach_images(all_items, assets_root):
                             break
 
                 if page is not None:
+                    include_material = page_has_data_analysis(page)
                     start_y = max(0, rect.y0 - 10)
+                    if include_material:
+                        start_y = 0
                     next_page_index, next_rect = find_next_rect(doc, page_index, qnum, stype)
                     if next_page_index == page_index and next_rect is not None:
                         end_y = min(page.rect.height, next_rect.y0 - 10)
@@ -523,17 +533,17 @@ def attach_images(all_items, assets_root):
                         end_y = page.rect.height
 
                     start_y, end_y = adjust_crop_bounds(
-                        page, stype, start_y, end_y
+                        page, stype, start_y, end_y, include_material
                     )
                     clip = fitz.Rect(0, start_y, page.rect.width, end_y)
-                    if has_hint:
+                    if has_hint or include_material:
                         filename = safe_image_name(representative)
                         out_path = os.path.join(assets_root, filename)
                         pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), clip=clip)
                         pix.save(out_path)
                         pix = None
                         images = ["assets/question_images/" + filename]
-                        status = "cropped"
+                        status = "material" if include_material else "cropped"
                         attached += 1
                     else:
                         filename = safe_source_name(representative)
@@ -557,7 +567,7 @@ def attach_images(all_items, assets_root):
         for item in items:
             item["images"] = images
             item["sourceImage"] = source_image
-            item["needsImage"] = has_hint
+            item["needsImage"] = has_hint or include_material
             item["imageStatus"] = status
 
     return attached, source_count, skipped

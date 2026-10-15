@@ -14,7 +14,7 @@ class QuestionImportService {
   static final QuestionImportService instance = QuestionImportService._();
 
   static const String assetPath = 'assets/questions.json';
-  static const int questionBankVersion = 2;
+  static const int questionBankVersion = 3;
   static const String _questionBankVersionKey = 'question_bank_version';
 
   Future<int> ensureImported({bool forceReimport = false}) async {
