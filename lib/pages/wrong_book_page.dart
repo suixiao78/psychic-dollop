@@ -42,7 +42,6 @@ class _WrongBookPageState extends State<WrongBookPage> {
                       arguments: const QuizArguments(
                         mode: PracticeMode.wrongReview,
                         title: '错题重做',
-                        count: 100,
                       ),
                     );
                   },

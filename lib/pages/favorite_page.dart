@@ -42,7 +42,6 @@ class _FavoritePageState extends State<FavoritePage> {
                       arguments: const QuizArguments(
                         mode: PracticeMode.favoriteReview,
                         title: '收藏练习',
-                        count: 100,
                       ),
                     );
                   },

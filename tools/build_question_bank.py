@@ -450,6 +450,34 @@ def safe_source_name(item: dict) -> str:
     return re.sub(r"[^0-9A-Za-z._-]+", "_", raw).strip("_")[:120] + ".jpg"
 
 
+def adjust_crop_bounds(page, stype, start_y, end_y):
+    if stype == "vivi":
+        cut_y = None
+        for marker in ["您的答案", "正确答案", "分析：", "分析:"]:
+            for rect in page.search_for(marker):
+                if rect.y0 >= start_y - 5 and rect.y0 < end_y:
+                    cut_y = rect.y0 if cut_y is None else min(cut_y, rect.y0)
+        if cut_y is not None:
+            end_y = min(end_y, cut_y - 5)
+    elif stype == "xueba":
+        score_y = None
+        for rect in page.search_for("分数"):
+            if start_y - 5 <= rect.y0 < end_y:
+                score_y = rect.y1 if score_y is None else max(score_y, rect.y1)
+        if score_y is not None:
+            start_y = max(start_y, score_y + 5)
+
+        cut_y = None
+        for marker in ["题目解析"]:
+            for rect in page.search_for(marker):
+                if rect.y0 >= start_y - 5 and rect.y0 < end_y:
+                    cut_y = rect.y0 if cut_y is None else min(cut_y, rect.y0)
+        if cut_y is not None:
+            end_y = min(end_y, cut_y - 5)
+
+    return start_y, end_y
+
+
 def attach_images(all_items, assets_root):
     os.makedirs(assets_root, exist_ok=True)
     groups = OrderedDict()
@@ -494,6 +522,9 @@ def attach_images(all_items, assets_root):
                     if end_y <= start_y + 20:
                         end_y = page.rect.height
 
+                    start_y, end_y = adjust_crop_bounds(
+                        page, stype, start_y, end_y
+                    )
                     clip = fitz.Rect(0, start_y, page.rect.width, end_y)
                     if has_hint:
                         filename = safe_image_name(representative)

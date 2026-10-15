@@ -208,6 +208,7 @@ class HomePage extends StatelessWidget {
                       PracticeMode.sequence,
                       subject: subject,
                       chapter: chapter,
+                      count: null,
                     );
                   },
                   child: const Text('顺序练习'),
@@ -222,6 +223,7 @@ class HomePage extends StatelessWidget {
                       PracticeMode.random,
                       subject: subject,
                       chapter: chapter,
+                      count: null,
                     );
                   },
                   child: const Text('随机练习'),
@@ -255,7 +257,7 @@ class HomePage extends StatelessWidget {
         examLevel: provider.selectedExamLevel,
         subjectId: subject?.id,
         chapterId: chapter?.id,
-        count: count ?? 20,
+        count: count,
       ),
     );
   }

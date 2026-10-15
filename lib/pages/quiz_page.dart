@@ -56,6 +56,15 @@ class _QuizPageState extends State<QuizPage> {
             title: Text(widget.arguments.title),
             actions: [
               IconButton(
+                tooltip: '答题卡',
+                onPressed: provider.questions.isEmpty
+                    ? null
+                    : () {
+                        _showQuestionDirectory(context, provider);
+                      },
+                icon: const Icon(Icons.grid_view),
+              ),
+              IconButton(
                 tooltip: provider.isFavorite ? '取消收藏' : '收藏',
                 onPressed: question == null
                     ? null
@@ -68,9 +77,99 @@ class _QuizPageState extends State<QuizPage> {
               ),
             ],
           ),
-          body: _buildBody(context, provider),
+          body: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragEnd: (DragEndDetails details) {
+              if (provider.isLoading) {
+                return;
+              }
+              final double? velocity = details.primaryVelocity;
+              if (velocity == null || velocity.abs() < 200) {
+                return;
+              }
+              if (velocity < 0) {
+                if (provider.hasNext) {
+                  provider.nextQuestion();
+                }
+              } else {
+                if (provider.hasPrevious) {
+                  provider.previousQuestion();
+                }
+              }
+            },
+            child: _buildBody(context, provider),
+          ),
           bottomNavigationBar:
               question == null ? null : _buildBottomBar(context, provider),
+        );
+      },
+    );
+  }
+
+  void _showQuestionDirectory(
+    BuildContext context,
+    PracticeProvider provider,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '答题卡',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.55,
+                  child: GridView.builder(
+                    itemCount: provider.questions.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      final bool? correct = provider.correctAt(index);
+                      Color? color;
+                      if (correct == true) {
+                        color = Colors.green.shade100;
+                      } else if (correct == false) {
+                        color = Colors.red.shade100;
+                      }
+                      if (index == provider.currentIndex) {
+                        color = Theme.of(context).colorScheme.primaryContainer;
+                      }
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          provider.jumpToQuestion(index);
+                          Navigator.of(sheetContext).pop();
+                        },
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: color ??
+                                Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('${index + 1}'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

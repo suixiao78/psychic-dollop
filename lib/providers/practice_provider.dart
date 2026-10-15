@@ -15,31 +15,43 @@ class PracticeProvider extends ChangeNotifier {
 
   List<Question> _questions = <Question>[];
   int _currentIndex = 0;
-  final Set<String> _selectedOptions = <String>{};
-  bool _isAnswered = false;
-  bool? _lastAnswerCorrect;
+  final Map<int, Set<String>> _selectedByIndex = <int, Set<String>>{};
+  final Map<int, bool> _answeredByIndex = <int, bool>{};
+  final Map<int, bool> _correctByIndex = <int, bool>{};
   bool _isFavorite = false;
   bool _isLoading = false;
   bool _isFinished = false;
   String _errorMessage = '';
   PracticeMode _mode = PracticeMode.sequence;
-  int _answeredCount = 0;
-  int _correctCount = 0;
   String _sessionId = '';
   DateTime? _questionStartedAt;
 
   List<Question> get questions => _questions;
   int get currentIndex => _currentIndex;
-  Set<String> get selectedOptions => Set<String>.unmodifiable(_selectedOptions);
-  bool get isAnswered => _isAnswered;
-  bool? get lastAnswerCorrect => _lastAnswerCorrect;
+
+  Set<String> get selectedOptions {
+    final selected = _selectedByIndex[_currentIndex];
+    if (selected == null) {
+      return const <String>{};
+    }
+    return Set<String>.unmodifiable(selected);
+  }
+
+  bool get isAnswered => _answeredByIndex[_currentIndex] ?? false;
+
+  bool? get lastAnswerCorrect => _correctByIndex[_currentIndex];
+
+  bool isAnsweredAt(int index) => _answeredByIndex[index] ?? false;
+
+  bool? correctAt(int index) => _correctByIndex[index];
+
   bool get isFavorite => _isFavorite;
   bool get isLoading => _isLoading;
   bool get isFinished => _isFinished;
   String get errorMessage => _errorMessage;
   PracticeMode get mode => _mode;
-  int get answeredCount => _answeredCount;
-  int get correctCount => _correctCount;
+  int get answeredCount => _answeredByIndex.length;
+  int get correctCount => _correctByIndex.values.where((bool value) => value).length;
   String get sessionId => _sessionId;
 
   Question? get currentQuestion {
@@ -66,12 +78,12 @@ class PracticeProvider extends ChangeNotifier {
   }
 
   String get selectedAnswer {
-    final keys = _selectedOptions.toList()..sort();
+    final keys = selectedOptions.toList()..sort();
     return keys.join();
   }
 
   bool get canSubmit {
-    return currentQuestion != null && !_isAnswered && _selectedOptions.isNotEmpty;
+    return currentQuestion != null && !isAnswered && selectedOptions.isNotEmpty;
   }
 
   Future<void> startPractice({
@@ -79,7 +91,7 @@ class PracticeProvider extends ChangeNotifier {
     String? examLevel,
     String? subjectId,
     String? chapterId,
-    int count = 20,
+    int? count,
   }) async {
     _isLoading = true;
     _errorMessage = '';
@@ -109,19 +121,24 @@ class PracticeProvider extends ChangeNotifier {
           );
           break;
         case PracticeMode.wrongReview:
-          loaded = await _wrongBookService.getWrongQuestions(limit: count);
+          loaded = await _wrongBookService.getWrongQuestions(
+            limit: count ?? 500,
+          );
           break;
         case PracticeMode.favoriteReview:
-          loaded = await _favoriteService.getFavoriteQuestions(limit: count);
+          loaded = await _favoriteService.getFavoriteQuestions(
+            limit: count ?? 500,
+          );
           break;
       }
 
       _questions = loaded;
       _currentIndex = 0;
-      _answeredCount = 0;
-      _correctCount = 0;
+      _selectedByIndex.clear();
+      _answeredByIndex.clear();
+      _correctByIndex.clear();
       _sessionId = DateTime.now().microsecondsSinceEpoch.toString();
-      _resetCurrentState();
+      _questionStartedAt = DateTime.now();
       _isFinished = loaded.isEmpty;
       await _loadFavoriteState();
     } catch (error) {
@@ -136,7 +153,7 @@ class PracticeProvider extends ChangeNotifier {
   }
 
   void selectOption(String optionKey) {
-    if (_isAnswered) {
+    if (isAnswered) {
       return;
     }
 
@@ -145,14 +162,19 @@ class PracticeProvider extends ChangeNotifier {
       return;
     }
 
+    final selected = _selectedByIndex.putIfAbsent(
+      _currentIndex,
+      () => <String>{},
+    );
+
     if (question.isMultipleChoice) {
-      if (_selectedOptions.contains(optionKey)) {
-        _selectedOptions.remove(optionKey);
+      if (selected.contains(optionKey)) {
+        selected.remove(optionKey);
       } else {
-        _selectedOptions.add(optionKey);
+        selected.add(optionKey);
       }
     } else {
-      _selectedOptions
+      selected
         ..clear()
         ..add(optionKey);
     }
@@ -162,7 +184,7 @@ class PracticeProvider extends ChangeNotifier {
 
   Future<void> submitAnswer() async {
     final question = currentQuestion;
-    if (question == null || _isAnswered || _selectedOptions.isEmpty) {
+    if (question == null || isAnswered || selectedOptions.isEmpty) {
       return;
     }
 
@@ -184,12 +206,8 @@ class PracticeProvider extends ChangeNotifier {
         sessionId: _sessionId,
       );
 
-      _isAnswered = true;
-      _lastAnswerCorrect = isCorrect;
-      _answeredCount += 1;
-      if (isCorrect) {
-        _correctCount += 1;
-      }
+      _answeredByIndex[_currentIndex] = true;
+      _correctByIndex[_currentIndex] = isCorrect;
     } catch (error) {
       _errorMessage = error.toString();
     }
@@ -206,7 +224,7 @@ class PracticeProvider extends ChangeNotifier {
     }
 
     _currentIndex += 1;
-    _resetCurrentState();
+    _questionStartedAt = DateTime.now();
     await _loadFavoriteState();
     notifyListeners();
   }
@@ -217,7 +235,17 @@ class PracticeProvider extends ChangeNotifier {
     }
 
     _currentIndex -= 1;
-    _resetCurrentState();
+    _questionStartedAt = DateTime.now();
+    await _loadFavoriteState();
+    notifyListeners();
+  }
+
+  Future<void> jumpToQuestion(int index) async {
+    if (index < 0 || index >= _questions.length || index == _currentIndex) {
+      return;
+    }
+    _currentIndex = index;
+    _questionStartedAt = DateTime.now();
     await _loadFavoriteState();
     notifyListeners();
   }
@@ -245,27 +273,17 @@ class PracticeProvider extends ChangeNotifier {
   void reset() {
     _questions = <Question>[];
     _currentIndex = 0;
-    _selectedOptions.clear();
-    _isAnswered = false;
-    _lastAnswerCorrect = null;
+    _selectedByIndex.clear();
+    _answeredByIndex.clear();
+    _correctByIndex.clear();
     _isFavorite = false;
     _isLoading = false;
     _isFinished = false;
     _errorMessage = '';
     _mode = PracticeMode.sequence;
-    _answeredCount = 0;
-    _correctCount = 0;
     _sessionId = '';
     _questionStartedAt = null;
     notifyListeners();
-  }
-
-  void _resetCurrentState() {
-    _selectedOptions.clear();
-    _isAnswered = false;
-    _lastAnswerCorrect = null;
-    _isFavorite = false;
-    _questionStartedAt = DateTime.now();
   }
 
   Future<void> _loadFavoriteState() async {

@@ -99,7 +99,7 @@ class QuestionService {
   }
 
   Future<List<Question>> getRandomQuestions({
-    required int count,
+    int? count,
     String? examLevel,
     String? subjectId,
     String? chapterId,
@@ -122,13 +122,18 @@ class QuestionService {
     addFilter('chapter_id', chapterId);
     addFilter('question_type', questionType);
 
-    final rows = await db.rawQuery(
+    final sql = StringBuffer(
       'SELECT * FROM questions '
       'WHERE ${conditions.join(' AND ')} '
-      'ORDER BY RANDOM() '
-      'LIMIT ?',
-      <Object?>[...args, count],
+      'ORDER BY RANDOM()',
     );
+    final queryArgs = <Object?>[...args];
+    if (count != null) {
+      sql.write(' LIMIT ?');
+      queryArgs.add(count);
+    }
+
+    final rows = await db.rawQuery(sql.toString(), queryArgs);
 
     final questions = rows
         .map((row) => Question.fromMap(Map<String, dynamic>.from(row)))

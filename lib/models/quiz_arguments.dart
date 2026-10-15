@@ -6,7 +6,7 @@ class QuizArguments {
   final String? examLevel;
   final String? subjectId;
   final String? chapterId;
-  final int count;
+  final int? count;
 
   const QuizArguments({
     required this.mode,
@@ -14,6 +14,6 @@ class QuizArguments {
     this.examLevel,
     this.subjectId,
     this.chapterId,
-    this.count = 20,
+    this.count,
   });
 }
