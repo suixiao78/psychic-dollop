@@ -28,7 +28,7 @@
 assets/questions.json
 ```
 
-首次启动时导入 SQLite。当前仓库内置示例题目，后续可以把 `D:\Downloads\电网` 中的 PDF 资料整理成同一 JSON 格式后替换。
+首次启动时导入 SQLite。当前仓库内置示例题目，后续可以把资料整理成同一 JSON 格式后替换。
 
 ## 云构建
 
