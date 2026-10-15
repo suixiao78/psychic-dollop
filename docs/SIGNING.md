@@ -99,3 +99,42 @@ keyPassword=你的Key密码
 keyAlias=upload
 storeFile=upload-keystore.jks
 ```
+## 6. 一键自动化脚本
+
+本仓库提供了：
+
+```text
+tools/setup_android_signing.ps1
+```
+
+先在项目根目录执行：
+
+```powershell
+gh auth login
+```
+
+然后运行：
+
+```powershell
+.\tools\setup_android_signing.ps1 -Repo suixiao78/psychic-dollop
+```
+
+脚本会自动：
+
+1. 生成 `android/app/upload-keystore.jks`
+2. 生成随机密码
+3. 生成 `android/key.properties`
+4. 将 keystore 转成 Base64
+5. 使用 `gh secret set` 配置 GitHub Actions Secrets
+6. 打印需要备份的 keystore 路径和密码
+
+运行完成后，推送新 tag：
+
+```powershell
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+GitHub Actions 会自动使用正式 keystore 签名，并发布新的 Release APK。
+
+注意：签名文件、密码和 `android/key.properties` 必须长期保存，丢失后无法对已发布 App 进行覆盖安装更新。
