@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/stats_provider.dart';
@@ -11,6 +12,8 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
@@ -18,6 +21,17 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         context.read<StatsProvider>().load();
       }
+    });
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _appVersion = '${info.version}+${info.buildNumber}';
     });
   }
 
@@ -88,11 +102,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Card(
+              Card(
                 child: ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('关于'),
-                  subtitle: Text('国家电网刷题助手 v1.0.0'),
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('关于'),
+                  subtitle: Text(
+                    '国家电网刷题助手 v${_appVersion.isEmpty ? '...' : _appVersion}',
+                  ),
                 ),
               ),
             ],

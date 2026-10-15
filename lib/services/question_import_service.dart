@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../db/database_helper.dart';
@@ -13,16 +14,24 @@ class QuestionImportService {
   static final QuestionImportService instance = QuestionImportService._();
 
   static const String assetPath = 'assets/questions.json';
+  static const int questionBankVersion = 2;
+  static const String _questionBankVersionKey = 'question_bank_version';
 
   Future<int> ensureImported({bool forceReimport = false}) async {
     final db = await DatabaseHelper.instance.database;
-    if (!forceReimport) {
-      final count = await _countQuestions(db);
-      if (count > 0) {
-        return count;
-      }
+    final preferences = await SharedPreferences.getInstance();
+    final savedVersion = preferences.getInt(_questionBankVersionKey) ?? 0;
+    final count = await _countQuestions(db);
+
+    if (!forceReimport && savedVersion == questionBankVersion && count > 0) {
+      return count;
     }
-    return importFromAssets(clearExisting: forceReimport);
+
+    final imported = await importFromAssets(
+      clearExisting: forceReimport || count > 0,
+    );
+    await preferences.setInt(_questionBankVersionKey, questionBankVersion);
+    return imported;
   }
 
   Future<int> importFromAssets({bool clearExisting = false}) async {
