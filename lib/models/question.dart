@@ -19,6 +19,7 @@ class Question {
   final int createdAt;
   final int updatedAt;
   final List<Option> options;
+  final List<String> images;
 
   const Question({
     this.id,
@@ -39,6 +40,7 @@ class Question {
     this.createdAt = 0,
     this.updatedAt = 0,
     this.options = const <Option>[],
+    this.images = const <String>[],
   });
 
   bool get isSingleChoice => questionType == 'single';
@@ -58,6 +60,7 @@ class Question {
   factory Question.fromMap(
     Map<String, dynamic> map, {
     List<Option> options = const <Option>[],
+    List<String> images = const <String>[],
   }) {
     return Question(
       id: map['id'] as int?,
@@ -78,6 +81,7 @@ class Question {
       createdAt: (map['created_at'] as int?) ?? 0,
       updatedAt: (map['updated_at'] as int?) ?? 0,
       options: options,
+      images: images,
     );
   }
 
@@ -122,6 +126,7 @@ class Question {
     int? createdAt,
     int? updatedAt,
     List<Option>? options,
+    List<String>? images,
   }) {
     return Question(
       id: id ?? this.id,
@@ -142,6 +147,7 @@ class Question {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       options: options ?? this.options,
+      images: images ?? this.images,
     );
   }
 }

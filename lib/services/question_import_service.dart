@@ -91,6 +91,7 @@ class QuestionImportService {
             }
 
             final options = _parseOptions(questionRaw['options']);
+            final images = _parseImages(questionRaw['images']);
             final question = Question(
               externalId: externalId,
               examLevel: questionRaw['examLevel']?.toString() ?? '通用',
@@ -130,6 +131,18 @@ class QuestionImportService {
               );
             }
 
+            for (var imageIndex = 0; imageIndex < images.length; imageIndex++) {
+              await txn.insert(
+                'question_images',
+                <String, Object?>{
+                  'question_id': questionId,
+                  'image_path': images[imageIndex],
+                  'sort_order': imageIndex,
+                },
+                conflictAlgorithm: ConflictAlgorithm.ignore,
+              );
+            }
+
             importedCount += 1;
           }
         }
@@ -160,6 +173,20 @@ class QuestionImportService {
       ..sort();
 
     return characters.join();
+  }
+
+  List<String> _parseImages(Object? rawImages) {
+    if (rawImages is! List) {
+      return const <String>[];
+    }
+    final images = <String>[];
+    for (final raw in rawImages) {
+      final path = raw?.toString().trim() ?? '';
+      if (path.isNotEmpty) {
+        images.add(path);
+      }
+    }
+    return images;
   }
 
   List<Option> _parseOptions(Object? rawOptions) {

@@ -83,9 +83,6 @@ def has_bad_stem(stem: str) -> bool:
     for bad in BAD_STEM_PARTS:
         if bad in stem:
             return True
-    # image-based questions cannot be answered in a pure text App
-    if "如上图所示" in stem or "点击图片" in stem or "图1" in stem and "（图" in stem:
-        return True
     return False
 
 
@@ -126,6 +123,7 @@ def make_item(
     source_file: str,
     source_locator: str,
     confidence: float,
+    images: list[str] | None = None,
 ) -> list[dict]:
     result = []
     if not answer or len(options) < 2:
@@ -147,6 +145,8 @@ def make_item(
             "answer": list(answer),
             "explanation": explanation,
             "difficulty": 1,
+            "images": images or [],
+            "imageStatus": "none",
             "sourceFile": source_file,
             "sourceLocator": source_locator,
             "reviewStatus": "auto",
@@ -251,8 +251,6 @@ def parse_xueba_file(path: str, level: str, subject_id: str, subject_name: str, 
         options = parse_options(body[first_opt.start():], multi_style=True)
         if len(options) < 2:
             continue
-        if any("如上图所示" in o["text"] for o in options):
-            continue
         if qtype == "single" and len(answer) > 1:
             qtype = "multiple"
         if qtype == "judge" and len(options) == 2:
@@ -352,6 +350,174 @@ def parse_ly_pair(q_path: str, a_path: str, subject_id: str, subject_name: str, 
 
 
 # ---------------------------------------------------------------------------
+# Image extraction
+# ---------------------------------------------------------------------------
+
+IMAGE_HINTS = [
+    "如图", "如图所示", "所示", "如下图", "下图", "上图", "图片",
+    "波形图", "电路图", "相量图", "示意图", "结构图", "图1", "图2",
+    "（图", "(图", "如上图",
+]
+
+
+def has_image_hint(item: dict) -> bool:
+    text = item.get("stem", "")
+    for opt in item.get("options", []):
+        text += " " + opt.get("text", "")
+    return any(hint in text for hint in IMAGE_HINTS)
+
+
+def safe_image_name(item: dict) -> str:
+    raw = f"{item.get('id', 'q')}_{item.get('sourceLocator', '')}"
+    return re.sub(r"[^0-9A-Za-z._-]+", "_", raw).strip("_")[:120] + ".png"
+
+
+def _source_type(item: dict) -> str:
+    sid = item.get("subjectId", "")
+    if sid == "sub_vivi_mock":
+        return "vivi"
+    if sid == "sub_xueba_mock":
+        return "xueba"
+    if sid in ("sub_power_system", "sub_relay", "sub_high_voltage"):
+        return "ly"
+    return "unknown"
+
+
+def find_header_rect(doc, qnum, qid=None, source_type="unknown"):
+    headers = []
+    if source_type == "vivi":
+        headers = [f"第{qnum}题"]
+    elif source_type == "xueba":
+        headers = [
+            f"{qnum}. [单选题]", f"{qnum}. [多选题]", f"{qnum}. [判断题]",
+            f"{qnum}.", f"{qnum}．",
+        ]
+    elif source_type == "ly":
+        if qid:
+            headers = [f"{qnum}.【{qid}】", qid]
+        else:
+            headers = [f"{qnum}."]
+    else:
+        headers = [str(qnum)]
+
+    for page_index in range(doc.page_count):
+        page = doc.load_page(page_index)
+        for header in headers:
+            if not header:
+                continue
+            rects = page.search_for(header)
+            if rects:
+                return page_index, page, rects[0]
+    return None, None, None
+
+
+def find_next_rect(doc, start_page_index, qnum, source_type):
+    if source_type == "vivi":
+        patterns = [f"第{qnum + 1}题"]
+    elif source_type == "xueba":
+        patterns = [
+            f"{qnum + 1}. [单选题]", f"{qnum + 1}. [多选题]",
+            f"{qnum + 1}. [判断题]", f"{qnum + 1}.", f"{qnum + 1}．",
+        ]
+    elif source_type == "ly":
+        patterns = [f"{qnum + 1}.【", f"{qnum + 1}."]
+    else:
+        patterns = [str(qnum + 1)]
+
+    for page_index in range(start_page_index, doc.page_count):
+        page = doc.load_page(page_index)
+        for pattern in patterns:
+            rects = page.search_for(pattern)
+            if rects:
+                return page_index, rects[0]
+    return None, None
+
+
+def attach_images(all_items, assets_root):
+    os.makedirs(assets_root, exist_ok=True)
+    cache = {}
+    attached = 0
+    skipped = 0
+
+    for item in all_items:
+        if not has_image_hint(item):
+            item["images"] = []
+            item["imageStatus"] = "none"
+            continue
+
+        source_file = item.get("sourceFile") or ""
+        source_locator = item.get("sourceLocator") or ""
+        qnum_match = re.search(r"(\d+)", source_locator)
+        qnum = int(qnum_match.group(1)) if qnum_match else None
+        qid_match = re.search(r"id\s+([^,\s]+)", source_locator)
+        qid = qid_match.group(1) if qid_match else None
+        stype = _source_type(item)
+
+        if not source_file or qnum is None:
+            item["images"] = []
+            item["imageStatus"] = "not_found"
+            skipped += 1
+            continue
+
+        key = (source_file, qnum, qid, stype)
+        if key in cache:
+            item["images"] = cache[key]
+            item["imageStatus"] = "cropped" if cache[key] else "not_found"
+            continue
+
+        try:
+            doc = fitz.open(source_file)
+            page_index, page, rect = find_header_rect(doc, qnum, qid=qid, source_type=stype)
+            if page is None:
+                for pi in range(doc.page_count):
+                    p = doc.load_page(pi)
+                    if qid and p.search_for(qid):
+                        page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
+                        break
+                    if (not qid) and p.search_for(str(qnum)):
+                        page_index, page, rect = pi, p, fitz.Rect(0, 0, p.rect.width, p.rect.height)
+                        break
+
+            if page is None:
+                doc.close()
+                item["images"] = []
+                item["imageStatus"] = "not_found"
+                cache[key] = []
+                skipped += 1
+                continue
+
+            start_y = max(0, rect.y0 - 10)
+            next_page_index, next_rect = find_next_rect(doc, page_index, qnum, stype)
+            if next_page_index == page_index and next_rect is not None:
+                end_y = min(page.rect.height, next_rect.y0 - 10)
+            else:
+                end_y = page.rect.height
+            if end_y <= start_y + 20:
+                end_y = page.rect.height
+
+            clip = fitz.Rect(0, start_y, page.rect.width, end_y)
+            filename = safe_image_name(item)
+            out_path = os.path.join(assets_root, filename)
+            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), clip=clip)
+            pix.save(out_path)
+            pix = None
+            doc.close()
+
+            asset_path = "assets/question_images/" + filename
+            item["images"] = [asset_path]
+            item["imageStatus"] = "cropped"
+            cache[key] = [asset_path]
+            attached += 1
+        except Exception:
+            item["images"] = []
+            item["imageStatus"] = "error"
+            cache[key] = []
+            skipped += 1
+
+    return attached, skipped
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -399,6 +565,10 @@ def build():
         items = parse_ly_pair(q_path, a_path, "sub_high_voltage", "高电压技术", "ch_ly_hv", "25ly协议班模拟卷", ["专科", "本科", "硕士"], counter)
         all_items.extend(items)
         report.append({"source_type": "ly", "file": q_path, "imported": len(items), "note": "题库+答案；通用层次"})
+
+    assets_root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "question_images")
+    attached, skipped = attach_images(all_items, assets_root)
+    report.append({"source_type": "images", "file": assets_root, "imported": attached, "note": f"自动裁图成功 {attached} 张，失败 {skipped} 张"})
 
     # group into app JSON schema
     subjects = OrderedDict()

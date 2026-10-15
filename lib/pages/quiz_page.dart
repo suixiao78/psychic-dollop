@@ -8,6 +8,7 @@ import '../providers/practice_provider.dart';
 import '../widgets/answer_result_panel.dart';
 import '../widgets/empty_view.dart';
 import '../widgets/option_tile.dart';
+import '../widgets/question_images.dart';
 
 class QuizPage extends StatefulWidget {
   final QuizArguments arguments;
@@ -120,6 +121,10 @@ class _QuizPageState extends State<QuizPage> {
         ),
         const SizedBox(height: 16),
         Text(question.stem, style: Theme.of(context).textTheme.titleMedium),
+        if (question.images.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          QuestionImages(images: question.images),
+        ],
         const SizedBox(height: 16),
         ...question.options.map((option) {
           return OptionTile(

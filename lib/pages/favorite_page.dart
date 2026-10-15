@@ -7,6 +7,7 @@ import '../models/question.dart';
 import '../models/quiz_arguments.dart';
 import '../providers/favorite_provider.dart';
 import '../widgets/empty_view.dart';
+import '../widgets/question_images.dart';
 
 class FavoritePage extends StatefulWidget {
   const FavoritePage({super.key});
@@ -120,6 +121,10 @@ class _FavoriteQuestionCard extends StatelessWidget {
               ],
             ),
             Text(question.stem, style: Theme.of(context).textTheme.titleMedium),
+            if (question.images.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              QuestionImages(images: question.images, height: 160),
+            ],
             const SizedBox(height: 8),
             Text(
               '正确答案：${question.correctAnswer}',

@@ -9,7 +9,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const String _databaseName = 'grid_quiz_app.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   Database? _database;
 
@@ -84,6 +84,17 @@ class DatabaseHelper {
         sort_order INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE,
         UNIQUE (question_id, option_key)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE question_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question_id INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE,
+        UNIQUE (question_id, image_path)
       )
     ''');
 
@@ -163,6 +174,11 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
+      CREATE INDEX idx_question_images_question
+      ON question_images (question_id, sort_order)
+    ''');
+
+    await db.execute('''
       CREATE INDEX idx_answer_records_question
       ON answer_records (question_id, answered_at)
     ''');
@@ -186,6 +202,22 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, newVersion);
+    }
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS question_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          question_id INTEGER NOT NULL,
+          image_path TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE,
+          UNIQUE (question_id, image_path)
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_question_images_question
+        ON question_images (question_id, sort_order)
+      ''');
     }
   }
 

@@ -95,7 +95,7 @@ class QuestionService {
         .map((row) => Question.fromMap(Map<String, dynamic>.from(row)))
         .toList();
 
-    return _attachOptions(questions);
+    return _attachImages(await _attachOptions(questions));
   }
 
   Future<List<Question>> getRandomQuestions({
@@ -134,7 +134,7 @@ class QuestionService {
         .map((row) => Question.fromMap(Map<String, dynamic>.from(row)))
         .toList();
 
-    return _attachOptions(questions);
+    return _attachImages(await _attachOptions(questions));
   }
 
   Future<Question?> getQuestionById(int questionId) async {
@@ -153,7 +153,8 @@ class QuestionService {
     final question = Question.fromMap(
       Map<String, dynamic>.from(rows.first),
     );
-    final questions = await _attachOptions(<Question>[question]);
+    final withOptions = await _attachOptions(<Question>[question]);
+    final questions = await _attachImages(withOptions);
     return questions.first;
   }
 
@@ -189,7 +190,7 @@ class QuestionService {
       }
     }
 
-    return _attachOptions(questions);
+    return _attachImages(await _attachOptions(questions));
   }
 
   Future<int> getQuestionCount({
@@ -222,6 +223,50 @@ class QuestionService {
     );
 
     return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<List<Question>> _attachImages(List<Question> questions) async {
+    if (questions.isEmpty) {
+      return <Question>[];
+    }
+
+    final ids = questions
+        .map((question) => question.id)
+        .whereType<int>()
+        .toList();
+
+    if (ids.isEmpty) {
+      return questions;
+    }
+
+    final db = await DatabaseHelper.instance.database;
+    final placeholders = List<String>.filled(ids.length, '?').join(',');
+    final rows = await db.query(
+      'question_images',
+      where: 'question_id IN ($placeholders)',
+      whereArgs: ids,
+      orderBy: 'question_id ASC, sort_order ASC, id ASC',
+    );
+
+    final imagesByQuestion = <int, List<String>>{};
+    for (final row in rows) {
+      final questionId = row['question_id'] as int?;
+      final imagePath = (row['image_path'] as String?) ?? '';
+      if (questionId == null || imagePath.isEmpty) {
+        continue;
+      }
+      imagesByQuestion
+          .putIfAbsent(questionId, () => <String>[])
+          .add(imagePath);
+    }
+
+    return questions.map((question) {
+      final questionId = question.id;
+      final images = questionId == null
+          ? const <String>[]
+          : (imagesByQuestion[questionId] ?? const <String>[]);
+      return question.copyWith(images: images);
+    }).toList();
   }
 
   Future<List<Question>> _attachOptions(List<Question> questions) async {
