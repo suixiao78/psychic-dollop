@@ -112,62 +112,71 @@ class _QuizPageState extends State<QuizPage> {
   ) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (BuildContext sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '答题卡',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.55,
-                  child: GridView.builder(
-                    itemCount: provider.questions.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemBuilder: (BuildContext context, int index) {
-                      final bool? correct = provider.correctAt(index);
-                      Color? color;
-                      if (correct == true) {
-                        color = Colors.green.shade100;
-                      } else if (correct == false) {
-                        color = Colors.red.shade100;
-                      }
-                      if (index == provider.currentIndex) {
-                        color = Theme.of(context).colorScheme.primaryContainer;
-                      }
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () {
-                          provider.jumpToQuestion(index);
-                          Navigator.of(sheetContext).pop();
-                        },
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: color ??
-                                Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text('${index + 1}'),
-                        ),
-                      );
-                    },
+          child: FractionallySizedBox(
+            heightFactor: 0.75,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(sheetContext).viewPadding.bottom + 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '答题卡',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      itemCount: provider.questions.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (BuildContext context, int index) {
+                        final bool? correct = provider.correctAt(index);
+                        Color? color;
+                        if (correct == true) {
+                          color = Colors.green.shade100;
+                        } else if (correct == false) {
+                          color = Colors.red.shade100;
+                        }
+                        if (index == provider.currentIndex) {
+                          color =
+                              Theme.of(context).colorScheme.primaryContainer;
+                        }
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            provider.jumpToQuestion(index);
+                            Navigator.of(sheetContext).pop();
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: color ??
+                                  Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('${index + 1}'),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
