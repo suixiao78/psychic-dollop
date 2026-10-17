@@ -4,6 +4,7 @@ import '../models/practice_mode.dart';
 import '../models/question.dart';
 import '../services/answer_service.dart';
 import '../services/favorite_service.dart';
+import '../services/preferences_service.dart';
 import '../services/question_service.dart';
 import '../services/wrong_book_service.dart';
 
@@ -12,6 +13,7 @@ class PracticeProvider extends ChangeNotifier {
   final AnswerService _answerService = AnswerService.instance;
   final WrongBookService _wrongBookService = WrongBookService.instance;
   final FavoriteService _favoriteService = FavoriteService.instance;
+  final PreferencesService _preferencesService = PreferencesService.instance;
 
   List<Question> _questions = <Question>[];
   int _currentIndex = 0;
@@ -25,6 +27,7 @@ class PracticeProvider extends ChangeNotifier {
   PracticeMode _mode = PracticeMode.sequence;
   String _sessionId = '';
   DateTime? _questionStartedAt;
+  String? _progressKey;
 
   List<Question> get questions => _questions;
   int get currentIndex => _currentIndex;
@@ -92,10 +95,13 @@ class PracticeProvider extends ChangeNotifier {
     String? subjectId,
     String? chapterId,
     int? count,
+    String? progressKey,
+    int? startIndex,
   }) async {
     _isLoading = true;
     _errorMessage = '';
     _mode = mode;
+    _progressKey = progressKey;
     _isFinished = false;
     notifyListeners();
 
@@ -134,6 +140,9 @@ class PracticeProvider extends ChangeNotifier {
 
       _questions = loaded;
       _currentIndex = 0;
+      if (startIndex != null && loaded.isNotEmpty) {
+        _currentIndex = startIndex.clamp(0, loaded.length - 1).toInt();
+      }
       _selectedByIndex.clear();
       _answeredByIndex.clear();
       _correctByIndex.clear();
@@ -141,6 +150,7 @@ class PracticeProvider extends ChangeNotifier {
       _questionStartedAt = DateTime.now();
       _isFinished = loaded.isEmpty;
       await _loadFavoriteState();
+      await _saveProgress();
     } catch (error) {
       _errorMessage = error.toString();
       _questions = <Question>[];
@@ -226,6 +236,7 @@ class PracticeProvider extends ChangeNotifier {
     _currentIndex += 1;
     _questionStartedAt = DateTime.now();
     await _loadFavoriteState();
+    await _saveProgress();
     notifyListeners();
   }
 
@@ -237,6 +248,7 @@ class PracticeProvider extends ChangeNotifier {
     _currentIndex -= 1;
     _questionStartedAt = DateTime.now();
     await _loadFavoriteState();
+    await _saveProgress();
     notifyListeners();
   }
 
@@ -247,6 +259,7 @@ class PracticeProvider extends ChangeNotifier {
     _currentIndex = index;
     _questionStartedAt = DateTime.now();
     await _loadFavoriteState();
+    await _saveProgress();
     notifyListeners();
   }
 
@@ -283,7 +296,16 @@ class PracticeProvider extends ChangeNotifier {
     _mode = PracticeMode.sequence;
     _sessionId = '';
     _questionStartedAt = null;
+    _progressKey = null;
     notifyListeners();
+  }
+
+  Future<void> _saveProgress() async {
+    final key = _progressKey;
+    if (key == null) {
+      return;
+    }
+    await _preferencesService.setInt(key, _currentIndex);
   }
 
   Future<void> _loadFavoriteState() async {

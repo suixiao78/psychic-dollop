@@ -6,6 +6,7 @@ import '../models/category_info.dart';
 import '../models/practice_mode.dart';
 import '../models/quiz_arguments.dart';
 import '../providers/question_provider.dart';
+import '../services/preferences_service.dart';
 import '../widgets/empty_view.dart';
 
 class HomePage extends StatelessWidget {
@@ -203,13 +204,7 @@ class HomePage extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
-                    _openQuiz(
-                      context,
-                      PracticeMode.sequence,
-                      subject: subject,
-                      chapter: chapter,
-                      count: null,
-                    );
+                    _startSequenceWithChoice(context, subject, chapter);
                   },
                   child: const Text('顺序练习'),
                 ),
@@ -236,6 +231,62 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  Future<void> _startSequenceWithChoice(
+    BuildContext context,
+    SubjectInfo subject,
+    ChapterInfo chapter,
+  ) async {
+    final provider = context.read<QuestionProvider>();
+    final progressKey =
+        'sequence_${provider.selectedExamLevel}_${subject.id}_${chapter.id}';
+    final savedIndex = await PreferencesService.instance.getInt(progressKey);
+
+    if (!context.mounted) {
+      return;
+    }
+
+    var startIndex = 0;
+    if (savedIndex != null && savedIndex > 0) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text('顺序练习'),
+            content: Text('上次练习到第 ${savedIndex + 1} 题，请选择开始方式。'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop('restart');
+                },
+                child: const Text('从头练习'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop('resume');
+                },
+                child: const Text('从上次开始'),
+              ),
+            ],
+          );
+        },
+      );
+      if (!context.mounted || choice == null) {
+        return;
+      }
+      startIndex = choice == 'resume' ? savedIndex : 0;
+    }
+
+    _openQuiz(
+      context,
+      PracticeMode.sequence,
+      subject: subject,
+      chapter: chapter,
+      count: null,
+      progressKey: progressKey,
+      startIndex: startIndex,
+    );
+  }
+
   void _openQuiz(
     BuildContext context,
     PracticeMode mode, {
@@ -243,6 +294,8 @@ class HomePage extends StatelessWidget {
     ChapterInfo? chapter,
     String? title,
     int? count,
+    String? progressKey,
+    int? startIndex,
   }) {
     final provider = context.read<QuestionProvider>();
     final finalTitle = title ??
@@ -258,6 +311,8 @@ class HomePage extends StatelessWidget {
         subjectId: subject?.id,
         chapterId: chapter?.id,
         count: count,
+        progressKey: progressKey,
+        startIndex: startIndex,
       ),
     );
   }

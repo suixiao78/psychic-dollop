@@ -32,6 +32,16 @@ class PreferencesService {
     await preferences.setString(_selectedExamLevelKey, value);
   }
 
+  Future<int?> getInt(String key) async {
+    final preferences = await _preferences;
+    return preferences.getInt(key);
+  }
+
+  Future<void> setInt(String key, int value) async {
+    final preferences = await _preferences;
+    await preferences.setInt(key, value);
+  }
+
   Future<void> clear() async {
     final preferences = await _preferences;
     await preferences.clear();

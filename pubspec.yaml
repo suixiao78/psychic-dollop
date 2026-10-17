@@ -4,7 +4,7 @@ description: "国家电网刷题助手 - 离线刷题 Android App MVP。"
 
 publish_to: "none"
 
-version: 1.0.9+10
+version: 1.0.10+11
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

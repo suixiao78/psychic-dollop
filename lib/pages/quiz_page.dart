@@ -43,6 +43,8 @@ class _QuizPageState extends State<QuizPage> {
       subjectId: widget.arguments.subjectId,
       chapterId: widget.arguments.chapterId,
       count: widget.arguments.count,
+      progressKey: widget.arguments.progressKey,
+      startIndex: widget.arguments.startIndex,
     );
   }
 
@@ -131,6 +133,30 @@ class _QuizPageState extends State<QuizPage> {
                     '答题卡',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '已答 ${provider.answeredCount} 题，正确 ${provider.correctCount} 题，错误 ${provider.answeredCount - provider.correctCount} 题',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 6,
+                    children: [
+                      _buildLegendItem(
+                        context,
+                        '当前',
+                        Theme.of(context).colorScheme.primaryContainer,
+                      ),
+                      _buildLegendItem(context, '正确', Colors.green.shade100),
+                      _buildLegendItem(context, '错误', Colors.red.shade100),
+                      _buildLegendItem(
+                        context,
+                        '未答',
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: GridView.builder(
@@ -169,7 +195,26 @@ class _QuizPageState extends State<QuizPage> {
                                       .surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('${index + 1}'),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Text('${index + 1}'),
+                                if (correct != null)
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 2,
+                                    child: Icon(
+                                      correct
+                                          ? Icons.check_circle
+                                          : Icons.cancel,
+                                      size: 12,
+                                      color: correct
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -181,6 +226,28 @@ class _QuizPageState extends State<QuizPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLegendItem(
+    BuildContext context,
+    String label,
+    Color color,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 

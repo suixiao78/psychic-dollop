@@ -7,6 +7,8 @@ class QuizArguments {
   final String? subjectId;
   final String? chapterId;
   final int? count;
+  final String? progressKey;
+  final int? startIndex;
 
   const QuizArguments({
     required this.mode,
@@ -15,5 +17,7 @@ class QuizArguments {
     this.subjectId,
     this.chapterId,
     this.count,
+    this.progressKey,
+    this.startIndex,
   });
 }
